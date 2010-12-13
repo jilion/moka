@@ -28,6 +28,7 @@ class exports.Rewriter
     @addImplicitParentheses()
     @ensureBalance BALANCED_PAIRS
     @rewriteClosingParens()
+    @rewriteListedFnIndents()
     @tokens
 
   # Rewrite the token stream, looking one token ahead and behind.
@@ -104,7 +105,10 @@ class exports.Rewriter
         not (two?[0] is ':' or one?[0] is '@' and three?[0] is ':')) or
         (tag is ',' and one and
           one[0] not in ['IDENTIFIER', 'NUMBER', 'STRING', '@', 'TERMINATOR', 'OUTDENT'])
-    action = (token, i) -> @tokens.splice i, 0, ['}', '}', token[2]]
+    action = (token, i) ->
+      value = new String '}'
+      value.generated = yes
+      @tokens.splice i, 0, ['}', value, token[2]]
     @scanTokens (token, i, tokens) ->
       if (tag = token[0]) in EXPRESSION_START
         stack.push [(if tag is 'INDENT' and @tag(i - 1) is '{' then '{' else tag), i]
@@ -263,6 +267,41 @@ class exports.Rewriter
         tokens.splice i, 0, val
       1
 
+  # Rewrite the indentation of bare single line functions in lists.
+  rewriteListedFnIndents: ->
+    stack = []
+    gen   = []
+    count = 0
+    @scanTokens (token, i, tokens) ->
+      id = token[0]
+      [coll, glyph, last] = stack[stack.length - 3..]
+      glyph = glyph?[0] in ['->', '=>']
+      skip = 1
+      if id is ',' and last?[0] is 'INDENT' and glyph
+        tokens.splice i, 0, ['OUTDENT', 2, last[2]]
+        count += 1
+        next = tokens[i + 2]
+        if coll?[0] is next?[0] is '{' and next[1].generated
+          tokens.splice i + 2, 1
+          gen.push yes
+        skip = 2
+      else if id in COLLECTION_OPEN
+        stack.push token
+        gen.push no if id is '{'
+      else if id in COLLECTION_CLOSE
+        if count and id isnt 'OUTDENT'
+          if id is '}' and token[1].generated
+            if gen[gen.length - 1]
+              tokens.splice i, count * 2
+              count = skip = 0
+          else
+            tokens.splice i - count, count
+            count = skip = 0
+        stack.pop()
+        stack.pop() if glyph
+        gen.pop() if id is '}'
+      skip
+
   # Generate the indentation tokens, based on another token on the same line.
   indentation: (token) ->
     [['INDENT', 2, token[2]], ['OUTDENT', 2, token[2]]]
@@ -298,6 +337,9 @@ for [left, rite] in BALANCED_PAIRS
 
 # Tokens that indicate the close of a clause of an expression.
 EXPRESSION_CLOSE = ['CATCH', 'WHEN', 'ELSE', 'FINALLY'].concat EXPRESSION_END
+
+COLLECTION_OPEN  = (pair[0] for pair in BALANCED_PAIRS when pair[1]).concat ['FOR', '->', '=>']
+COLLECTION_CLOSE = (pair[1] for pair in BALANCED_PAIRS when pair[1]).concat ['FORIN', 'FOROF']
 
 # Tokens that, if followed by an `IMPLICIT_CALL`, indicate a function invocation.
 IMPLICIT_FUNC    = ['IDENTIFIER', 'SUPER', ')', 'CALL_END', ']', 'INDEX_END', '@', 'THIS']

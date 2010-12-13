@@ -377,3 +377,13 @@ f = ([key, value]) ->
 eq f([10, 11]), 21
 eq key, 'a'
 eq value, 1
+
+
+# Bare single line functions are closed by commas.
+fn = (count, fns...) -> eq count, fns.length
+fn 2, ->, ->
+fn 3, ->, ->, ->
+fn 2, -> value, -> value
+eq 2, [-> value, -> value].length
+numbers = one: -> 1, two: -> 2
+funcs = one: -> [-> 1, three: 3], two: -> 2
