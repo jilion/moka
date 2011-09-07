@@ -10,6 +10,7 @@ fs               = require 'fs'
 path             = require 'path'
 {Lexer,RESERVED} = require './lexer'
 {parser}         = require './parser'
+{EventEmitter}   = require 'events'
 
 # TODO: Remove registerExtension when fully deprecated.
 if require.extensions
@@ -26,15 +27,23 @@ exports.VERSION = '1.1.3-pre'
 exports.RESERVED = RESERVED
 
 # Expose helpers for testing.
-exports.helpers = require './helpers'
+exports.helpers = helpers = require './helpers'
+
+# Allow CoffeeScript to emit Node.js events.
+helpers.extend exports, new EventEmitter
+exports.listeners()  # events don't work without this (under Node 0.4.11)
 
 # Compile a string of CoffeeScript code to JavaScript, using the Coffee/Jison
 # compiler.
-exports.compile = compile = (code, options = {}) ->
+exports.compile = compile = (input, options = {}) ->
+  exports.emit 'compile', {input, options}
   try
-    (parser.parse lexer.tokenize code).compile options
+    output = (parser.parse lexer.tokenize input).compile options
+    exports.emit 'success', {input, options}
+    output
   catch err
     err.message = "In #{options.filename}, #{err.message}" if options.filename
+    exports.emit 'failure', {input, options, err}
     throw err
 
 # Tokenize a string of CoffeeScript code, and return the array of tokens.

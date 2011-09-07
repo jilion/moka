@@ -13,6 +13,22 @@ test "--bare", ->
   eq -1, CoffeeScript.compile('x = y', bare: on).indexOf 'function'
   ok 'passed' is CoffeeScript.eval '"passed"', bare: on, filename: 'test'
 
+test "compiler emits events", ->
+  compileCount = 0; successCount = 0; failureCount = 0
+  CoffeeScript.on 'compile', -> compileCount++
+  CoffeeScript.on 'success', -> successCount++
+  CoffeeScript.on 'failure', -> failureCount++
+  CoffeeScript.compile('x = y')
+  eq compileCount, 1
+  eq successCount, 1
+  eq failureCount, 0
+  compileCount = 0; successCount = 0; failureCount = 0
+  try
+    CoffeeScript.compile('^@$%!')  # valid Perl, no doubt
+  eq compileCount, 1
+  eq successCount, 0
+  eq failureCount, 1
+
 test "multiple generated references", ->
   a = {b: []}
   a.b[true] = -> this == a.b
