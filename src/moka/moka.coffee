@@ -16,15 +16,14 @@ kClosureCompilerPath = path.join process.env.HOME, '/Projects/JavaScript/closure
 kClosureLibraryDir = path.join process.env.HOME, '/Projects/JavaScript/closure-library'
 kMokaNamespace = 'moka'
 kPackageDir = path.resolve __dirname, '../..'
-kFrameworkDir = path.join kPackageDir , 'framework'
 
 
 # ===========
 # = Helpers =
 # ===========
 
-coffee    = require path.join(kPackageDir, 'language/lib/coffee-script')
-nodes     = require path.join(kPackageDir, 'language/lib/coffee-script/nodes')
+coffee    = require '../coffee-script/coffee-script'
+nodes     = require '../coffee-script/nodes'
 
 
 # ==================
@@ -204,7 +203,7 @@ class App
     if path.existsSync mainMokaPath
       code = "namespace = '#{@config().namespace}'\nprivateNamespace = '#{@privateNamespace()}'" + \
       fs.readFileSync(mainMokaPath, 'utf-8') + '\n' + \
-      fs.readFileSync(path.join(kFrameworkDir, 'MKApplicationLoader.moka'), 'utf-8')
+      fs.readFileSync(path.join(__dirname, '../../src/moka/applicationLoader.coffee'), 'utf-8')
       code = @compile 'loader', code if options.compiled
       code
     else
@@ -214,8 +213,7 @@ class App
     filePath.match(/([^\/]+)\.moka$/)[1]
     
   filePathsForRegex: (regex) ->
-    filePaths = @recursiveReadDir kFrameworkDir, regex
-    filePaths = filePaths.concat @recursiveReadDir @sourceDir, regex
+    filePaths = @recursiveReadDir @sourceDir, regex
     filePaths
   
   # Search for a file given its name.
@@ -223,8 +221,7 @@ class App
   # it tries with the project directory.
   filePathForName: (name) ->
     name = if /\.moka$/.test name then name else "#{name}.moka"
-    filePath = @recursiveReadDir kFrameworkDir, name    
-    filePath = @recursiveReadDir @sourceDir, name unless filePath
+    filePath = @recursiveReadDir @sourceDir, name
     filePath    
   
   isDir: (file) ->
@@ -343,15 +340,15 @@ class App
     @replaceMacros @wrapModuleContent(module, options)
   
   moduleLoaderContent: (options = {compiled:yes}) ->
-    code = fs.readFileSync(path.join(kFrameworkDir, 'MKModuleManager.moka'), 'utf-8')
+    code = fs.readFileSync(path.join(__dirname, '../../src/moka/moduleManager.moka'), 'utf-8')
     code = @compile 'moduleLoader', code, bare:yes if options.compiled
     @replaceMacros code
   
   applicationContent: (options = {compiled:yes}) ->
-    applicationMokaPath = path.join(@root, 'src/application.moka')
+    applicationMokaPath = path.join(@root, 'src/application.coffee')
     if path.existsSync applicationMokaPath
       code = fs.readFileSync(applicationMokaPath, 'utf-8')
-      code +=  fs.readFileSync(path.join(kFrameworkDir, 'MKApplication.moka'), 'utf-8')
+      code +=  fs.readFileSync(path.join(__dirname, '../../src/moka/application.coffee'), 'utf-8')
       options.includes = @includesForFileAtPath applicationMokaPath
       options.includeObjects = []
       
@@ -391,34 +388,3 @@ module.exports = (root) -> new App root
 
 
 
-
-
-
-# =====================
-# = Command line tool =
-# =====================
-
-exports.run = ->
-  console.log 'v1'
-  
-  console.log process.argv[2..]
-  app = new App fs.realpathSync '.'
-  console.log app.moduleContent 'CAAnimationTimer'
-  # console.log app.moduleContent 'MKRange'
-  
-  # relative = path.relative or path.resolve
-  #     "exec-sync": "0.1.2"
-
-  # console.log fs.realpathSync '.'
-  # __originalDirname = fs.realpathSync '.'
-  # console.log path.join relative(__originalDirname, process.cwd()), 'Cakefile'
-  # console.log process.cwd()
-  # console.log __filename
-  # console.log 
-  # return fatalError "Nou!"
-
-# Print an error and exit when attempting to use an invalid task/option.
-fatalError = (message) ->
-  console.error message + '\n'
-  console.log 'To see a list of all tasks/options, run "cake"'
-  process.exit 1
