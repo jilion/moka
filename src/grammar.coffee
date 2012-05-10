@@ -85,7 +85,11 @@ grammar =
   # CoffeeScript is the **Expression** -- everything that can be an expression
   # is one. Blocks serve as the building blocks of many other rules, making
   # them somewhat circular.
-  Expression: [
+  Expression: [    
+    o 'Protocol'
+    o 'Include'
+    o 'Bundle'
+    
     o 'Value'
     o 'Invocation'
     o 'Code'
@@ -99,7 +103,11 @@ grammar =
     o 'Class'
     o 'Throw'
   ]
-
+  
+  
+  
+  
+  
   # An indented block of expressions. Note that the [Rewriter](rewriter.html)
   # will convert some postfix forms into blocks for us, by adjusting the
   # token stream.
@@ -127,9 +135,10 @@ grammar =
     o 'JS',                                     -> new Literal $1
     o 'REGEX',                                  -> new Literal $1
     o 'DEBUGGER',                               -> new Literal $1
-    o 'UNDEFINED',                              -> new Undefined
-    o 'NULL',                                   -> new Null
-    o 'BOOL',                                   -> new Bool $1
+    o 'BOOL',                                   ->
+      val = new Literal $1
+      val.isUndefined = yes if $1 is 'undefined'
+      val
   ]
 
   # Assignment of a variable, property, or index to a value.
@@ -277,19 +286,71 @@ grammar =
     o 'AssignList OptComma TERMINATOR AssignObj',               -> $1.concat $4
     o 'AssignList OptComma INDENT AssignList OptComma OUTDENT', -> $1.concat $4
   ]
+  
 
+  Bundle: [
+    o 'BUNDLE BundleArguments',           -> new Bundle $2
+  ]
+
+  BundleArguments: [
+    o 'CALL_START BundleList OptComma CALL_END',   -> $2
+  ]
+  
+  BundleList: [
+    o 'BundleItem',                                                 -> [$1]
+    o 'BundleList , BundleItem',                                    -> $1.concat $3
+    o 'BundleList OptComma TERMINATOR BundleItem',                  -> $1.concat $4
+    o 'INDENT BundleList OptComma OUTDENT',                     -> $2
+    o 'BundleList OptComma INDENT BundleList OptComma OUTDENT', -> $1.concat $4
+  ]
+  
+  BundleItem: [
+    o 'REGEX'
+    o 'STRING'
+  ]
+
+  Include: [
+    o 'INCLUDE STRING', -> new Include $2
+  ]
+  
   # Class definitions have optional bodies of prototype property assignments,
   # and optional references to the superclass.
-  Class: [
+  Protocol: [
+    o 'PROTOCOL', -> new Protocol 
+    o 'PROTOCOL Block', -> new Protocol null, null, $2
+    o 'PROTOCOL SimpleAssignable', -> new Protocol $2
+    o 'PROTOCOL SimpleAssignable Block', -> new Protocol $2, null, $3
+    o 'PROTOCOL SimpleAssignable EXTENDS SimpleAssignable', -> new Protocol $2, $4
+    o 'PROTOCOL SimpleAssignable EXTENDS SimpleAssignable Block', -> new Protocol $2, $4, $5
+  ]
+  
+  Class: [    
     o 'CLASS',                                           -> new Class
     o 'CLASS Block',                                     -> new Class null, null, $2
     o 'CLASS EXTENDS Expression',                        -> new Class null, $3
     o 'CLASS EXTENDS Expression Block',                  -> new Class null, $3, $4
+    
     o 'CLASS SimpleAssignable',                          -> new Class $2
     o 'CLASS SimpleAssignable Block',                    -> new Class $2, null, $3
     o 'CLASS SimpleAssignable EXTENDS Expression',       -> new Class $2, $4
     o 'CLASS SimpleAssignable EXTENDS Expression Block', -> new Class $2, $4, $5
+    
+    # protocols
+    o 'CLASS CONFORMS ProtocolList',                                                 -> new Class null, null, null, $3
+    o 'CLASS CONFORMS ProtocolList Block',                                           -> new Class null, null, $3, $2
+    o 'CLASS EXTENDS SimpleAssignable CONFORMS ProtocolList',                        -> new Class null, $3, null, $5
+    o 'CLASS EXTENDS SimpleAssignable CONFORMS ProtocolList Block',                  -> new Class null, $3, $6, $5
+    o 'CLASS SimpleAssignable CONFORMS ProtocolList',                                -> new Class $2, null, null, $4
+    o 'CLASS SimpleAssignable CONFORMS ProtocolList Block',                          -> new Class $2, null, $5, $4
+    o 'CLASS SimpleAssignable EXTENDS SimpleAssignable CONFORMS ProtocolList',       -> new Class $2, $4, null, $6
+    o 'CLASS SimpleAssignable EXTENDS SimpleAssignable CONFORMS ProtocolList Block', -> new Class $2, $4, $7, $6
+    
   ]
+  
+  ProtocolList: [
+    o 'PROTOCOL_LIST_START ArgList PROTOCOL_LIST_END', -> $2
+  ]
+
 
   # Ordinary function invocation, or a chained series of calls.
   Invocation: [
@@ -560,7 +621,7 @@ operators = [
   ['left',      '.', '?.', '::']
   ['left',      'CALL_START', 'CALL_END']
   ['nonassoc',  '++', '--']
-  ['left',      '?']
+  ['left',      '?']  
   ['right',     'UNARY']
   ['left',      'MATH']
   ['left',      '+', '-']
@@ -569,9 +630,9 @@ operators = [
   ['left',      'COMPARE']
   ['left',      'LOGIC']
   ['nonassoc',  'INDENT', 'OUTDENT']
-  ['right',     '=', ':', 'COMPOUND_ASSIGN', 'RETURN', 'THROW', 'EXTENDS']
+  ['right',     '=', ':', 'COMPOUND_ASSIGN', 'RETURN', 'THROW', 'EXTENDS', 'CONFORMS']
   ['right',     'FORIN', 'FOROF', 'BY', 'WHEN']
-  ['right',     'IF', 'ELSE', 'FOR', 'WHILE', 'UNTIL', 'LOOP', 'SUPER', 'CLASS']
+  ['right',     'INCLUDE', 'BUNDLE', 'IF', 'ELSE', 'FOR', 'WHILE', 'UNTIL', 'LOOP', 'SUPER', 'CLASS', 'PROTOCOL']
   ['right',     'POST_IF']
 ]
 

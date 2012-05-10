@@ -26,8 +26,9 @@ class exports.Rewriter
     @tagPostfixConditionals()
     @addImplicitBraces()
     @addImplicitParentheses()
+    @identifyProtocolList()
     @tokens
-
+    
   # Rewrite the token stream, looking one token ahead and behind.
   # Allow the return value of the block to tell us how many tokens to move
   # forwards (or backwards) in the stream, to make sure we don't miss anything
@@ -52,6 +53,25 @@ class exports.Rewriter
       i += 1
     i - 1
 
+  
+  # Some blocks occur in the middle of expressions -- when we're expecting
+  # this, remove their trailing newlines.
+  identifyProtocolList: ->
+    openConforms = no
+    
+    @scanTokens (token, i, tokens) ->
+      if not openConforms and token[0] is 'CONFORMS'
+        openConforms = yes
+        tokens.splice i + 1, 0, ['PROTOCOL_LIST_START', ')', token[2]]
+        2
+      else if openConforms and (token[0] is 'TERMINATOR' or token[0] is 'INDENT')
+        openConforms = no
+        tokens.splice i, 0, ['PROTOCOL_LIST_END', ')', token[2]]
+        2
+      else
+        1
+  
+  
   # Leading newlines would introduce an ambiguity in the grammar, so we
   # dispatch them here.
   removeLeadingNewlines: ->
@@ -118,7 +138,7 @@ class exports.Rewriter
         ((!startsLine and @tag(i - 1) isnt ',') or
           not (two?[0] is ':' or one?[0] is '@' and three?[0] is ':'))) or
         (tag is ',' and one and
-          one[0] not in ['IDENTIFIER', 'NUMBER', 'STRING', '@', 'TERMINATOR', 'OUTDENT']
+          one[0] not in ['IDENTIFIER', 'NUMBER', 'STRING', '@', 'TERMINATOR', 'OUTDENT', 'BUNDLE', 'CONFORMS']
       )
 
     action = (token, i) ->
@@ -158,13 +178,13 @@ class exports.Rewriter
     condition = (token, i) ->
       [tag] = token
       return yes if not seenSingle and token.fromThen
-      seenSingle  = yes if tag in ['IF', 'ELSE', 'CATCH', '->', '=>', 'CLASS']
+      seenSingle  = yes if tag in ['IF', 'ELSE', 'CATCH', '->', '=>', 'CLASS', 'PROTOCOL']
       seenControl = yes if tag in ['IF', 'ELSE', 'SWITCH', 'TRY', '=']
       return yes if tag in ['.', '?.', '::'] and @tag(i - 1) is 'OUTDENT'
       not token.generated and @tag(i - 1) isnt ',' and (tag in IMPLICIT_END or
         (tag is 'INDENT' and not seenControl)) and
         (tag isnt 'INDENT' or
-          (@tag(i - 2) not in ['CLASS', 'EXTENDS'] and @tag(i - 1) not in IMPLICIT_BLOCK and
+          (@tag(i - 2) not in ['PROTOCOL', 'CLASS', 'EXTENDS', 'CONFORMS'] and @tag(i - 1) not in IMPLICIT_BLOCK and
           not ((post = @tokens[i + 1]) and post.generated and post[0] is '{')))
 
     action = (token, i) ->
@@ -172,7 +192,7 @@ class exports.Rewriter
 
     @scanTokens (token, i, tokens) ->
       tag     = token[0]
-      noCall  = yes if tag in ['CLASS', 'IF', 'FOR', 'WHILE']
+      noCall  = yes if tag in ['PROTOCOL', 'CLASS', 'IF', 'FOR', 'WHILE']
       [prev, current, next] = tokens[i - 1 .. i + 1]
       callObject  = not noCall and tag is 'INDENT' and
                     next and next.generated and next[0] is '{' and
@@ -292,12 +312,12 @@ for [left, rite] in BALANCED_PAIRS
 EXPRESSION_CLOSE = ['CATCH', 'WHEN', 'ELSE', 'FINALLY'].concat EXPRESSION_END
 
 # Tokens that, if followed by an `IMPLICIT_CALL`, indicate a function invocation.
-IMPLICIT_FUNC    = ['IDENTIFIER', 'SUPER', ')', 'CALL_END', ']', 'INDEX_END', '@', 'THIS']
+IMPLICIT_FUNC    = ['IDENTIFIER', 'SUPER', ')', 'CALL_END', ']', 'INDEX_END', '@', 'THIS', 'BUNDLE']
 
 # If preceded by an `IMPLICIT_FUNC`, indicates a function invocation.
 IMPLICIT_CALL    = [
   'IDENTIFIER', 'NUMBER', 'STRING', 'JS', 'REGEX', 'NEW', 'PARAM_START', 'CLASS'
-  'IF', 'TRY', 'SWITCH', 'THIS', 'BOOL', 'NULL', 'UNDEFINED', 'UNARY', 'SUPER'
+  'IF', 'TRY', 'SWITCH', 'THIS', 'BOOL', 'UNARY', 'SUPER'
   '@', '->', '=>', '[', '(', '{', '--', '++'
 ]
 

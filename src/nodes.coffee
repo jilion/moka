@@ -260,8 +260,20 @@ exports.Block = class Block extends Base
       prelude = "#{@compileNode merge(o, indent: '')}\n" if preludeExps.length
       @expressions = rest
     code = @compileWithDeclarations o
-    return code if o.bare
-    "#{prelude}(function() {\n#{code}\n}).call(this);\n"
+    if o.module
+      name = JSON.stringify o.name
+      includeKeys = JSON.stringify o.includes
+      includeObjects = o.includeObjects.join ', '
+      exportObjects = o.exports.join ', '
+      "#{prelude}#{o.namespace}.module(#{name}, #{includeKeys}, function(#{includeObjects}) {\n#{code}\n  return [#{exportObjects}];\n});\n"
+    else if o.require
+      includeKeys = JSON.stringify o.includes
+      includeObjects = o.includeObjects.join ', '
+      "#{prelude}require(#{includeKeys}, function(#{includeObjects}) {\n#{code}\n});\n"
+    else if o.bare
+      code
+    else
+      "#{prelude}(function() {\n#{code}\n}).call(this);\n"
 
   # Compile the expressions body for the contents of a function, with
   # declarations of all inner variables pushed up to the top.
@@ -325,7 +337,9 @@ exports.Literal = class Literal extends Base
     return this if @value is 'continue' and not o?.loop
 
   compileNode: (o) ->
-    code = if @value is 'this'
+    code = if @isUndefined
+      if o.level >= LEVEL_ACCESS then '(void 0)' else 'void 0'
+    else if @value is 'this'
       if o.scope.method?.bound then o.scope.method.context else @value
     else if @value.reserved
       "\"#{@value}\""
@@ -335,23 +349,6 @@ exports.Literal = class Literal extends Base
 
   toString: ->
     ' "' + @value + '"'
-
-class exports.Undefined extends Base
-  isAssignable: NO
-  isComplex: NO
-  compileNode: (o) ->
-    if o.level >= LEVEL_ACCESS then '(void 0)' else 'void 0'
-
-class exports.Null extends Base
-  isAssignable: NO
-  isComplex: NO
-  compileNode: -> "null"
-
-class exports.Bool extends Base
-  isAssignable: NO
-  isComplex: NO
-  compileNode: -> @val
-  constructor: (@val) ->
 
 #### Return
 
@@ -471,6 +468,7 @@ exports.Value = class Value extends Base
         return new If new Existence(fst), snd, soak: on
       null
     @unfoldedSoak = result or no
+
 
 #### Comment
 
@@ -863,13 +861,49 @@ exports.Arr = class Arr extends Base
     for obj in @objects when obj.assigns name then return yes
     no
 
+#### Bundle
+exports.Bundle = class Bundle extends Base
+  constructor: (fileNames) ->
+    @fileNames = []
+    for fileName in fileNames
+      if /^\/.*\/$/.test fileName
+        # regexp detected
+        @fileNames.push eval(fileName)
+      else
+        @fileNames.push fileName.replace(/['"]/g, '')
+    
+  compileNode: (o) ->
+    # '// bundle ' + @fileNames
+    code = []
+    for fileName in @fileNames
+      code.push "// Bundle #{fileName} start"
+      if fileName instanceof RegExp
+        for key, value of o.bundles
+          if fileName.test key
+            code.push "#{o.indent}#{value}"
+      else
+        fileCode = o.bundles[fileName]
+        code.push "#{o.indent}#{fileCode}" if fileCode
+
+      code.push "// Bundle #{fileName} end"
+    code.join '\n'
+
+
+#### Include
+exports.Include = class Include extends Base
+  constructor: (fileName) ->
+    @fileName = fileName.replace(/['"]/g, '')
+    
+  compileNode: (o) ->
+    '// include ' + @fileName
+  
 #### Class
 
 # The CoffeeScript class definition.
 # Initialize a **Class** with its name, an optional superclass, and a
 # list of prototype property assignments.
 exports.Class = class Class extends Base
-  constructor: (@variable, @parent, @body = new Block) ->
+  constructor: (@variable, @parent, @body = new Block, @protocols) ->
     @boundFuncs = []
     @body.classBody = yes
 
@@ -969,7 +1003,7 @@ exports.Class = class Class extends Base
     @ctor.ctor     = @ctor.name = name
     @ctor.klass    = null
     @ctor.noReturn = yes
-
+  
   # Instead of generating the JavaScript string directly, we build up the
   # equivalent syntax tree and compile that, in pieces. You can see the
   # constructor, property assignments, and inheritance getting built out below.
@@ -985,6 +1019,10 @@ exports.Class = class Class extends Base
     @ensureConstructor name
     @body.spaced = yes
     @body.expressions.unshift @ctor unless @ctor instanceof Code
+    if decl
+      # replaced 'name' with 'className' to make it simpler to recognize and mangle!
+      @body.expressions.unshift new Assign (new Value (new Literal name), [new Access new Literal 'className']), (new Literal "'#{name}'")
+    
     @body.expressions.push lname
     @body.expressions.unshift @directives...
     @addBoundFunctions o
@@ -1000,8 +1038,23 @@ exports.Class = class Class extends Base
 
     klass = new Parens call, yes
     klass = new Assign @variable, klass if @variable
+    
+    # protocolsString = '// Protocols: "'
+    # if @protocols
+    #   for prot in @protocols
+    #     protocolsString += prot.compileNode(o) + ' '
+    # protocolsString +=  '"\n'
+    # protocolsString + klass.compile o
+    
     klass.compile o
 
+#### Protocol
+exports.Protocol = class Protocol extends Class
+    compileNode: (o) ->
+      name = if @variable then @variable.compileNode(o) else null
+      extendsName = if @parent then @parent.compileNode(o) else null
+      "// protocol #{name} extends #{extendsName}"
+  
 #### Assign
 
 # The **Assign** is used to assign a local variable to value, or to set the

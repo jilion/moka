@@ -58,7 +58,7 @@ exports.Lexer = class Lexer
            @numberToken()     or
            @regexToken()      or
            @jsToken()         or
-           @literalToken()
+           @literalToken() 
 
     @closeIndentation()
     @error "missing #{tag}" if tag = @ends.pop()
@@ -88,7 +88,11 @@ exports.Lexer = class Lexer
 
     if not forcedIdentifier and (id in JS_KEYWORDS or id in COFFEE_KEYWORDS)
       tag = id.toUpperCase()
-      if tag is 'WHEN' and @tag() in LINE_BREAK
+      if tag is 'INCLUDE' and @indent > 0
+        @error "include calls outside top level are not allowed"
+      else if tag is 'BUNDLE' and @indent > 0
+        @error "bundle calls outside top level are not allowed"
+      else if tag is 'WHEN' and @tag() in LINE_BREAK
         tag = 'LEADING_WHEN'
       else if tag is 'FOR'
         @seenFor = yes
@@ -117,11 +121,11 @@ exports.Lexer = class Lexer
     unless forcedIdentifier
       id  = COFFEE_ALIAS_MAP[id] if id in COFFEE_ALIASES
       tag = switch id
-        when '!'                 then 'UNARY'
-        when '==', '!='          then 'COMPARE'
-        when '&&', '||'          then 'LOGIC'
-        when 'true', 'false'     then 'BOOL'
-        when 'break', 'continue' then 'STATEMENT'
+        when '!'                                  then 'UNARY'
+        when '==', '!='                           then 'COMPARE'
+        when '&&', '||'                           then 'LOGIC'
+        when 'true', 'false', 'null', 'undefined' then 'BOOL'
+        when 'break', 'continue'                  then 'STATEMENT'
         else  tag
 
     @token tag, id
@@ -526,7 +530,7 @@ exports.Lexer = class Lexer
   unfinished: ->
     LINE_CONTINUER.test(@chunk) or
     @tag() in ['\\', '.', '?.', 'UNARY', 'MATH', '+', '-', 'SHIFT', 'RELATION'
-               'COMPARE', 'LOGIC', 'THROW', 'EXTENDS']
+               'COMPARE', 'LOGIC', 'THROW', 'EXTENDS', 'CONFORMS']
 
   # Converts newlines for string literals.
   escapeLines: (str, heredoc) ->
@@ -553,7 +557,7 @@ JS_KEYWORDS = [
   'new', 'delete', 'typeof', 'in', 'instanceof'
   'return', 'throw', 'break', 'continue', 'debugger'
   'if', 'else', 'switch', 'for', 'while', 'do', 'try', 'catch', 'finally'
-  'class', 'extends', 'super'
+  'class', 'extends', 'super', 'conforms', 'protocol', 'include', 'bundle'
 ]
 
 # CoffeeScript-only keywords.
@@ -684,7 +688,7 @@ MATH    = ['*', '/', '%']
 RELATION = ['IN', 'OF', 'INSTANCEOF']
 
 # Boolean tokens.
-BOOL = ['TRUE', 'FALSE']
+BOOL = ['TRUE', 'FALSE', 'NULL', 'UNDEFINED']
 
 # Tokens which a regular expression will never immediately follow, but which
 # a division operator might.
@@ -692,7 +696,7 @@ BOOL = ['TRUE', 'FALSE']
 # See: http://www.mozilla.org/js/language/js20-2002-04/rationale/syntax.html#regular-expressions
 #
 # Our list is shorter, due to sans-parentheses method calls.
-NOT_REGEX = ['NUMBER', 'REGEX', 'BOOL', 'NULL', 'UNDEFINED', '++', '--', ']']
+NOT_REGEX = ['NUMBER', 'REGEX', 'BOOL', '++', '--', ']']
 
 # If the previous token is not spaced, there are more preceding tokens that
 # force a division parse:
@@ -701,8 +705,8 @@ NOT_SPACED_REGEX = NOT_REGEX.concat ')', '}', 'THIS', 'IDENTIFIER', 'STRING'
 # Tokens which could legitimately be invoked or indexed. An opening
 # parentheses or bracket following these tokens will be recorded as the start
 # of a function invocation or indexing operation.
-CALLABLE  = ['IDENTIFIER', 'STRING', 'REGEX', ')', ']', '}', '?', '::', '@', 'THIS', 'SUPER']
-INDEXABLE = CALLABLE.concat 'NUMBER', 'BOOL', 'NULL', 'UNDEFINED'
+CALLABLE  = ['IDENTIFIER', 'STRING', 'REGEX', ')', ']', '}', '?', '::', '@', 'THIS', 'SUPER', 'BUNDLE']
+INDEXABLE = CALLABLE.concat 'NUMBER', 'BOOL'
 
 # Tokens that, when immediately preceding a `WHEN`, indicate that the `WHEN`
 # occurs at the start of a line. We disambiguate these from trailing whens to
