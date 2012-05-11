@@ -205,7 +205,7 @@ class App
       throw "Can't compile '#{name}',\n#{e}"
       
   loaderFileContent: (options = {compiled:yes}) ->
-    mainMokaPath = path.join(@root, 'src/loader.moka')
+    mainMokaPath = path.join(@root, 'src/loaderDelegate.moka')
     if path.existsSync mainMokaPath
       code = "namespace = '#{@config().namespace}'\nprivateNamespace = '#{@privateNamespace()}'" + \
       fs.readFileSync(mainMokaPath, 'utf-8') + '\n' + \
@@ -213,7 +213,7 @@ class App
       code = @compile 'loader', code if options.compiled
       code
     else
-      throw "Can't find loader.moka."
+      throw "Can't find loaderDelegate.moka."
   
   fileNameForPath: (filePath) ->
     filePath.match(/([^\/]+)\.moka$/)[1]
