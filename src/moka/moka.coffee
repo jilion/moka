@@ -283,6 +283,7 @@ class App
       # console.log "Valid, testing bundles of #{module.filePath}"
       for name in module.bundleNames
         filePath = @filePathForName name
+        return no unless filePath
         name = @fileNameForPath filePath
         cachedModulePath = path.join @tempDir, name
         if path.existsSync cachedModulePath
@@ -344,6 +345,15 @@ class App
   moduleContent: (name, options = {module:yes}) ->
     module = @readModule name
     @replaceMacros @wrapModuleContent(module, options)
+  
+  moduleContents: (regex, options = {module:yes}) ->
+    filePaths = @filePathsForRegex regex
+    contents = []
+    for filePath in filePaths
+      name = @fileNameForPath filePath
+      module = @readModule name
+      contents.push @replaceMacros(@wrapModuleContent(module, options))
+    contents
   
   moduleLoaderContent: (options = {compiled:yes}) ->
     code = fs.readFileSync(path.join(__dirname, '../../src/moka/moduleManager.coffee'), 'utf-8')
