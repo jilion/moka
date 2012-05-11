@@ -12,7 +12,7 @@ kLoaderFileName = 'loader'
 kConfigFileName = 'Mokafile'
 kSourceDirName =  'src'
 kLibDirName =  'lib'
-kTempLibDirName =  path.join kLibDirName, 'lib'
+kTempLibDirName =  path.join kLibDirName, 'temp'
 
 kClosureLibraryNamespace = 'goog'
 kClosureCompilerPath = path.join process.env.HOME, '/Projects/JavaScript/closure-compiler/compiler.jar'
