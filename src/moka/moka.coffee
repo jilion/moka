@@ -11,11 +11,14 @@ _         = require 'underscore'
 kLoaderFileName = 'loader'
 kConfigFileName = 'Mokafile'
 kSourceDirName =  'src'
+kLibDirName =  'lib'
+kTempLibDirName =  path.join kLibDirName, 'lib'
+
 kClosureLibraryNamespace = 'goog'
 kClosureCompilerPath = path.join process.env.HOME, '/Projects/JavaScript/closure-compiler/compiler.jar'
 kClosureLibraryDir = path.join process.env.HOME, '/Projects/JavaScript/closure-library'
 kMokaNamespace = 'moka'
-kPackageDir = path.resolve __dirname, '../..'
+kPackageDirName = path.resolve __dirname, '../..'
 
 
 # ===========
@@ -32,8 +35,11 @@ nodes     = require '../coffee-script/nodes'
 
 class App
   constructor: (root = './') ->
-    @root = path.resolve kPackageDir, root
+    @root = path.resolve kPackageDirName, root
     @sourceDir = path.join @root, kSourceDirName
+    @tempDir = path.join @root, kTempLibDirName
+    unless path.existsSync @tempDir
+      fs.mkdirSync @tempDir, '0755'
     @mokafilePath = path.join @root, kConfigFileName 
     unless path.existsSync @mokafilePath
       throw "Can't find Mokafile in directory #{@root}."
@@ -45,7 +51,7 @@ class App
       throw "Invalid Mokafile: #{error}."
   
   exportsForFileAtPath: (filePath) ->
-    if path.existsSync filePath      
+    if path.existsSync filePath
       source = fs.readFileSync filePath, 'utf-8'
       root = coffee.nodes source
       @exportsForNodesWithRoot root
@@ -104,7 +110,7 @@ class App
     # local variables, thus renamed by closure compiler.
     varStatement = code.match(/(var(?:\s+[a-zA-Z0-9$_]+\s*,?)+;)/)[1]
     code = code.replace varStatement, ''
-    tempFilePath = path.join kPackageDir, 'temp/module.js'
+    tempFilePath = path.join @tempDir, 'module.js'
     fs.writeFileSync tempFilePath, code, 'utf8'
     
     data = execSync("python " + kClosureLibraryDir + "/closure/bin/calcdeps.py --path " + kClosureLibraryDir + " --input " + tempFilePath + " \
@@ -278,7 +284,7 @@ class App
       for name in module.bundleNames
         filePath = @filePathForName name
         name = @fileNameForPath filePath
-        cachedModulePath = path.join kPackageDir, 'temp', name
+        cachedModulePath = path.join @tempDir, name
         if path.existsSync cachedModulePath
           submodule = JSON.parse fs.readFileSync cachedModulePath, 'utf-8'
           unless @isCachedModuleValid submodule
@@ -297,7 +303,7 @@ class App
     filePath = @filePathForName name
     if filePath
       name = @fileNameForPath filePath
-      cachedModulePath = path.join kPackageDir, 'temp', name
+      cachedModulePath = path.join @tempDir, name
       if path.existsSync cachedModulePath
         module = JSON.parse fs.readFileSync cachedModulePath, 'utf-8'
         if module.filePath is filePath \ # maybe the module has moved.
@@ -340,12 +346,12 @@ class App
     @replaceMacros @wrapModuleContent(module, options)
   
   moduleLoaderContent: (options = {compiled:yes}) ->
-    code = fs.readFileSync(path.join(__dirname, '../../src/moka/moduleManager.moka'), 'utf-8')
+    code = fs.readFileSync(path.join(__dirname, '../../src/moka/moduleManager.coffee'), 'utf-8')
     code = @compile 'moduleLoader', code, bare:yes if options.compiled
     @replaceMacros code
   
   applicationContent: (options = {compiled:yes}) ->
-    applicationMokaPath = path.join(@root, 'src/application.coffee')
+    applicationMokaPath = path.join(@root, 'src/application.moka')
     if path.existsSync applicationMokaPath
       code = fs.readFileSync(applicationMokaPath, 'utf-8')
       code +=  fs.readFileSync(path.join(__dirname, '../../src/moka/application.coffee'), 'utf-8')
@@ -360,7 +366,7 @@ class App
       code = @compile 'application', code, options if options.compiled
       @replaceMacros code
     else
-      throw "Can't find loader.moka."
+      throw "Can't find application.moka."
     
   fileContent: (name) ->
     console.log "fileContent: #{name}"
