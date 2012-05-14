@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>content</key>
+	<string>${1:name}: (${2:args}) ${0:-&gt;|=&gt;}
+  ${3:body}</string>
+	<key>name</key>
+	<string>selector</string>
+	<key>scope</key>
+	<string>source.moka</string>
+	<key>tabTrigger</key>
+	<string>sel</string>
+	<key>uuid</key>
+	<string>046462CB-0B1A-49B4-9739-877E66353D30</string>
+</dict>
+</plist>
