@@ -3,6 +3,8 @@ path      = require 'path'
 execSync  = require 'exec-sync'
 _         = require 'underscore'
 
+execSync  = require 'exec-sync'
+
 
 # ============
 # = Contants =
@@ -20,6 +22,8 @@ kClosureLibraryDir = path.join process.env.HOME, '/Projects/JavaScript/closure-l
 kMokaNamespace = 'moka'
 kPackageDirName = path.resolve __dirname, '../..'
 
+# TODO clean this
+uglify = require path.join kPackageDirName, '/../sv_compiler/uglify-js' 
 
 # ===========
 # = Helpers =
@@ -122,13 +126,22 @@ class App
     for prop in propsList 
       comps = prop.split(":")
       propsMap[comps[1]] = comps[0] if comps.length is 2
-          
-    for key, value of propsMap
-      regex =  new RegExp "([^a-zA-Z0-9_\\\/])" + key + "([^a-zA-Z0-9_\\\\])", 'g'
-      # BUG: a(a) doesn't get replaced with value(value)
-      # HACK: perform replace twice
-      data = data.replace(regex, "$1" + value + "$2")
-      data = data.replace(regex, "$1" + value + "$2")
+    
+    
+    ast = uglify.parser.parse(data)
+    pro = uglify.uglify;
+    console.log('propsMap', propsMap)
+    
+    ast = pro.renameProperties(ast, propsMap)
+    data = pro.gen_code(ast, beautify:yes)
+    
+    
+    # for key, value of propsMap
+    #   regex =  new RegExp "([^a-zA-Z0-9_\\\/])" + key + "([^a-zA-Z0-9_\\\\])", 'g'
+    #   # BUG: a(a) doesn't get replaced with value(value)
+    #   # HACK: perform replace twice
+    #   data = data.replace(regex, "$1" + value + "$2")
+    #   data = data.replace(regex, "$1" + value + "$2")
           
     fs.unlink  '_vars_map.out'
     fs.unlink  '_props_map.out'

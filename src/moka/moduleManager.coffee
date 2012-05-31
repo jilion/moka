@@ -51,7 +51,7 @@ class MKModuleManager
 
   
   define_: (module) ->
-    console.group('define ' + module.name)
+    console.group('define ' + module.name) if console.group
     
     unless @isInstalled_ module.name
       # install only if it's not already installed.
@@ -68,7 +68,7 @@ class MKModuleManager
           @moduleStates_[module.name] = MKModuleManager.ModuleState.Awaiting
           @downloadModules_ module.deps
     
-    console.groupEnd()
+    console.groupEnd() if console.groupEnd
     
   require_: (moduleManager) ->
     self = moduleManager
