@@ -51,11 +51,11 @@ class MKModuleManager
 
   
   define_: (module) ->
-    console.group('define ' + module.name) if console.group
+    # console.group('define ' + module.name) if console.group
     
     unless @isInstalled_ module.name
       # install only if it's not already installed.
-      console.log module.name, '-> deps installed? ' + @areInstalled_(module.deps)
+      # console.log module.name, '-> deps installed? ' + @areInstalled_(module.deps)
       
       if @areInstalled_ module.deps
         # all deps are installed, proceed installing this module.
@@ -68,7 +68,7 @@ class MKModuleManager
           @moduleStates_[module.name] = MKModuleManager.ModuleState.Awaiting
           @downloadModules_ module.deps
     
-    console.groupEnd() if console.groupEnd
+    # console.groupEnd() if console.groupEnd
     
   require_: (moduleManager) ->
     self = moduleManager
@@ -117,7 +117,7 @@ class MKModuleManager
   moduleObjects_: (moduleNames) ->
     deps = []
     for name in moduleNames
-      deps = deps.concat @invokeModule_(@modules_[name])
+      deps = deps.concat @modules_[name].objects  #@invokeModule_(@modules_[name])
     # console.log 'moduleObjects_', deps
     deps
   
@@ -140,13 +140,14 @@ class MKModuleManager
     # console.log "module state: " +  @moduleStates_[module.name]
     @modules_[module.name] = module
     # @invokeModule_ module
+    module.objects = @invokeModule_(module)
     @didInstallModule_ module
   
   downloadModules_: (names) ->
     for name in names
       
       if @moduleStates_[name] is undefined
-        console.log 'downloading modules ' + name
+        # console.log 'downloading modules ' + name
         # unknown module, download it.
         @moduleStates_[name] = MKModuleManager.ModuleState.Loading
         # console.log "@@@@@@@@@ downloadModules_ @@@@@@@@@@"
@@ -154,13 +155,13 @@ class MKModuleManager
         # console.log "********************** isCustom  ***************************"
         # 
         # console.log name + " " + isCustom 
-        console.log @config_.paths
+        # console.log @config_.paths
         url = @config_.paths[name]
         unless url
           console.log 'invalid url ' + url
           return
           
-        console.log 'module ' + name + ' @ URL: ' + url
+        # console.log 'module ' + name + ' @ URL: ' + url
         loader = new ModuleLoader url, (error) ->
           if error
             console.log error
@@ -188,8 +189,8 @@ class MKModuleManager
     # console.log 'SAME', clonedCalls is @pendingCalls_
     for call in clonedCalls
       moduleNames = call[1]
-      console.log '*** pending call'
-      console.log moduleNames, @moduleStates_
+      # console.log '*** pending call'
+      # console.log moduleNames, @moduleStates_
       if @areInstalled_ moduleNames
         # console.log "call to remove", call
         index = @indexOf @pendingCalls_, call
