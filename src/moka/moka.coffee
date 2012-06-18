@@ -91,17 +91,14 @@ class App
       filePath = @filePathForName fileName
       imports = imports.concat @exportsForFileAtPath filePath
     _.uniq imports
-    
+  
   bundlesForNodesWithRoot: (root) ->
     bundles = []
     self = @
     root.eachChild (child) ->
       if child instanceof nodes.Bundle
           for value in child.fileNames
-            if typeof value is 'string'
-              bundles.push value
-            else
-              bundles = bundles.concat self.filePathsForRegex(value)
+            bundles.push value
     _.uniq bundles
   
   compileWithClosureCompiler: (root) ->
@@ -159,6 +156,18 @@ class App
           return found = yes
     found
 
+  bundleNames: (namesAndRegexes) ->
+    names = []
+    for item in namesAndRegexes
+      if typeof item is 'string'
+        names.push item
+      else
+        names = names.concat @filePathsForRegex(item)
+    names = _.uniq names
+    # TODO FIX bundle name with double ', ie ''ciao''
+    names = _.map names, (name) -> name.replace(/\'/g, '')
+    names
+    
   # Recursively compile the root by aggregating the imports and exports
   # of its includes and by importing the code of 'bundle' calls.
   recursivelyCompileRoot: (root, filePath, options = {module:yes}) ->
@@ -167,9 +176,8 @@ class App
     allIncludes = @includesForNodesWithRoot root
     allImports = @importsForNodesWithRoot root
     allExports = @exportsForNodesWithRoot root
-    bundleNames = @bundlesForNodesWithRoot root
-    # TODO FIX bundle name with double ', ie ''ciao''
-    bundleNames = _.map bundleNames, (name) -> name.replace(/\'/g, '')
+    bundleNamesAndRegexs = @bundlesForNodesWithRoot root
+    bundleNames = @bundleNames bundleNamesAndRegexs
     
     # console.log 'mod imports', allImports 
     # console.log 'mod exports', allExports  
@@ -200,11 +208,14 @@ class App
     
     root = @compileWithClosureCompiler(root) if @useClosureLibrary(root) and not options.skipClosure
     
+    bundleNamesAndRegexs = _.map bundleNamesAndRegexs, (reg) -> reg.toString()
+    
     name: name
     includes: allIncludes
     exports: allExports 
     imports: allImports 
     code: root.compile(bare: yes, bundles: bundles)
+    bundleNamesAndRegexs : bundleNamesAndRegexs 
     bundleNames: bundleNames
     filePath: filePath
     
@@ -293,6 +304,19 @@ class App
     # console.log cacheDate 
     # console.log modifiedDate 
     if cacheDate - modifiedDate > 0
+      # Test bundle regexes returns same files
+      if module.bundleNamesAndRegexs
+        bundleNamesAndRegexs = _.map module.bundleNamesAndRegexs, (item) ->
+          # convert string to regexp using eval, if it fails it means it's a string.
+          try
+            eval item
+          catch e
+            item
+        bundleNames = @bundleNames(bundleNamesAndRegexs)
+        diff = _.difference bundleNames, module.bundleNames
+        if diff.length isnt 0
+          console.log "invalid cached version for #{module.name} (diff:#{diff})."
+          return no
       # console.log "Valid, testing bundles of #{module.filePath}"
       for name in module.bundleNames
         filePath = @filePathForName name
