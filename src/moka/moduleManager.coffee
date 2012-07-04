@@ -1,16 +1,16 @@
 class MKModuleManager
-  
+
   sharedInstance_ = null
   @sharedInstance: () ->
     unless sharedInstance_
       sharedInstance_ = new MKModuleManager
     sharedInstance_
-  
+
   @ModuleState =
     Loading: 0
     Awaiting: 1
     Installed: 2
-    
+
   constructor: ->
     # installed modules
     @modules_ = {}
@@ -22,41 +22,41 @@ class MKModuleManager
       paths: {}
     # context used to call the modules.
     @context_ = new Object
-    
+
     # install require
     self = @
     @define_ @moduleForArgs_ [MANGLE('require'), () -> self.require_(self)]
-    # 
+    #
     # defaultModules = {require: () -> self.require_(self) }
     # for key, value of defaultModules
     #   @define_ @moduleForArgs_ [key, value]
-    # 
+    #
     @require = @require_(@)[0]
-  
+
   addPath: (module, path) ->
     @config_.paths[module] = path;
 
   define: () ->
     # console.log 'define() called!'
-    
+
     module = @moduleForArgs_ arguments
     if not module
       throw Error('#0023')
-    
+
     # if @moduleStates_[module.name] isnt ModuleManager.ModuleState.Loading
     #   throw Error('#0062')
-    
-    
+
+
     @define_ module
 
-  
+
   define_: (module) ->
     # console.group('define ' + module.name) if console.group
-    
+
     unless @isInstalled_ module.name
       # install only if it's not already installed.
       # console.log module.name, '-> deps installed? ' + @areInstalled_(module.deps)
-      
+
       if @areInstalled_ module.deps
         # all deps are installed, proceed installing this module.
         @installModule_ module
@@ -67,15 +67,15 @@ class MKModuleManager
           @modules_[module.name] = module
           @moduleStates_[module.name] = MKModuleManager.ModuleState.Awaiting
           @downloadModules_ module.deps
-    
+
     # console.groupEnd() if console.groupEnd
-    
+
   require_: (moduleManager) ->
     self = moduleManager
     # console.log self
     # (context, moduleNames, observer) ->
     #   # console.log arguments
-    #   
+    #
     #   if context instanceof Array and typeof moduleNames is 'function'
     #     # context is null
     #     observer = moduleNames
@@ -84,21 +84,21 @@ class MKModuleManager
     requireMethod = (moduleNames, observer) ->
       # console.log arguments
       context = @context_
-     
+
       # console.log 'context'
       # console.log context
-      # console.log 'moduleNames' 
-      # console.log moduleNames 
-      # console.log 'observer' 
-      # console.log observer 
-      
+      # console.log 'moduleNames'
+      # console.log moduleNames
+      # console.log 'observer'
+      # console.log observer
+
       # for name in moduleNames
       #   console.log 'requiring ' + self.extractModuleName_(name)
       #   console.log 'name'
       #   console.log name
-        
+
       # console.log 'requiring ' + arguments.callee.caller
-      
+
       if self.areInstalled_ moduleNames
         # console.log 'already installed!' + moduleNames
         # modules already installed.
@@ -109,31 +109,31 @@ class MKModuleManager
         # console.log 'add to pending call'
         self.pendingCalls_.push [context, moduleNames, observer]
         self.downloadModules_ moduleNames
-      
+
     requireMethod.addPath = (module, path) -> self.addPath(module, path)
     [requireMethod]
-      
-    
+
+
   moduleObjects_: (moduleNames) ->
     deps = []
     for name in moduleNames
       deps = deps.concat @modules_[name].objects  #@invokeModule_(@modules_[name])
     # console.log 'moduleObjects_', deps
     deps
-  
+
   invokeModule_: (module) ->
     # call and store all dependencies.
     depObjects = @moduleObjects_ module.deps
     # console.log module.name
     # console.log module.code
-    # 
-    # console.log 'depObjects ', depObjects 
+    #
+    # console.log 'depObjects ', depObjects
     # call the new module and pass it all dep objects.
     obj = module.code.apply(@context_, depObjects)
-    
+
     # console.log obj
     obj
-    
+
   installModule_: (module) ->
     @moduleStates_[module.name] = MKModuleManager.ModuleState.Installed
     # console.log  @moduleStates_
@@ -142,10 +142,10 @@ class MKModuleManager
     # @invokeModule_ module
     module.objects = @invokeModule_(module)
     @didInstallModule_ module
-  
+
   downloadModules_: (names) ->
     for name in names
-      
+
       if @moduleStates_[name] is undefined
         # console.log 'downloading modules ' + name
         # unknown module, download it.
@@ -153,24 +153,24 @@ class MKModuleManager
         # console.log "@@@@@@@@@ downloadModules_ @@@@@@@@@@"
         # console.log @config.customModules
         # console.log "********************** isCustom  ***************************"
-        # 
-        # console.log name + " " + isCustom 
+        #
+        # console.log name + " " + isCustom
         # console.log @config_.paths
         url = @config_.paths[name]
         unless url
           console.log 'invalid url ' + url
           return
-          
+
         # console.log 'module ' + name + ' @ URL: ' + url
         loader = new ModuleLoader url, (error) ->
           if error
             console.log error
-          else 
+          else
             # console.log 'module ' + name + " loaded"
         loader.start()
       else
         # console.log 'already downloading module ' + name
-        
+
   # indexOf doesn't exist in IE6,7,8 (in other modules use _.indexOf)
   indexOf: (list, anItem) ->
     i = 0
@@ -181,7 +181,7 @@ class MKModuleManager
         return i
       i++
     -1
-    
+
   didInstallModule_: (module) ->
     # console.log '@@@didInstallModule_ ', module.name
     # call pending calls which modules have been downloaded.
@@ -194,72 +194,72 @@ class MKModuleManager
       if @areInstalled_ moduleNames
         # console.log "call to remove", call
         index = @indexOf @pendingCalls_, call
-        # console.log "index", index 
+        # console.log "index", index
         @pendingCalls_.splice(index, 1)
         call[2].apply(call[0], @moduleObjects_ moduleNames)
-      
+
     # console.log 'remaining pending calls', @pendingCalls_
     # check pending defines
     for name, module of @modules_
       # console.log 'check pending define: ' + module.name
       # console.log '@isAwaiting_ ' + @isAwaiting_(name)
       # console.log 'state ' + @moduleStates_[name]
-      # 
+      #
       # console.log '@areInstalled_ ' + @areInstalled_(module.deps)
       # console.log '==> ' + (@isAwaiting_(name) and @areInstalled_(module.deps))
       if @isAwaiting_(name) and @areInstalled_(module.deps)
         # console.log 'can install ' + name
         @installModule_ module
-  
-  
+
+
   moduleForArgs_: (args) ->
-    
+
     if args.length == 2 \
        and typeof args[0] is 'string' \
        and typeof args[1] is 'function'
       # name + code
       return name: args[0], deps: [], code: args[1]
-      
+
     else if args.length == 3 \
      and typeof args[0] is 'string' \
      and args[1] instanceof Array \
      and typeof args[2] is 'function'
       #  name + deps + code
       return name: args[0], deps: args[1], code: args[2]
-      
+
     else
       # invalid args or number of args
       null
-  
-      
+
+
   # ===================
   # = State Managment =
   # ===================
-  
+
   isInstalled_: (name) ->
     @isInState_ name, MKModuleManager.ModuleState.Installed
-    
+
   areInstalled_: (names) ->
     # for name in names
-      # console.log 'state of ' + name + ": " + @moduleStates_[name]    
+      # console.log 'state of ' + name + ": " + @moduleStates_[name]
     @areInState_ names, MKModuleManager.ModuleState.Installed
-    
+
   isAwaiting_: (name) ->
     @isInState_ name, MKModuleManager.ModuleState.Awaiting
-    
+
   isInState_: (name, state) ->
     # console.log (@moduleStates_[@extractModuleName_(name)] is state)
     @moduleStates_[name] is state
-  
+
   areInState_: (names, state) ->
     for name in names
       if not @isInState_(name, state)
-        console.log name
+        # console.log name
         return no
     yes
-  
 
-    
+
+
 # window.sublime_ =
 #   define: ModuleManager.define
 api = window[PRIVATE_NAMESPACE] = window[PRIVATE_NAMESPACE] || {}
@@ -285,7 +285,7 @@ require = () -> moduleManager.require.apply(moduleManager, arguments)
 # loader = new ModuleLoader url, (error) ->
 #   if error
 #     console.log error
-#   else 
+#   else
 #     console.log 'module loaded'
 # loader.start
 
@@ -300,16 +300,16 @@ class ModuleLoader
     element.src = url
     @element = element
     @completion = completion
-    
+
   start: () ->
     # console.log 'appending element'
     headElement = document['head'] || document.getElementsByTagName('head')[0]
     headElement.insertBefore(@element, headElement.firstChild)
-  
+
   # ===========
   # = Private =
   # ===========
-   
+
   didFinishLoading_: (element) ->
     self = @
     (event) ->
@@ -321,7 +321,7 @@ class ModuleLoader
         element.onload = element.onreadystatechange = element.onerror = null;
         if self.completion
           self.completion()
-  
+
   didFailLoading_: (element) ->
     self = @
     (event) ->
