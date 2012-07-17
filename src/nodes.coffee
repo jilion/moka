@@ -261,13 +261,35 @@ exports.Block = class Block extends Base
       @expressions = rest
     code = @compileWithDeclarations o
     if o.module
-      name = JSON.stringify o.name
-      includeKeys = JSON.stringify o.includes
+      if o.nameWrapFunction?
+        # Each module name is passed to this function.
+        # The user can alter or wrap the name with same js code.
+        # It must return a string.
+        keys = []
+        for includeName in o.includes
+          keys.push(o.nameWrapFunction includeName)
+        includeKeys = "[#{keys.join(',')}]"
+        name = o.nameWrapFunction o.name
+      else
+        includeKeys = JSON.stringify o.includes
+        name = JSON.stringify o.name
+
+      # name = JSON.stringify o.name
+      # includeKeys = JSON.stringify o.includes
       includeObjects = o.includeObjects.join ', '
       exportObjects = o.exports.join ', '
       "#{prelude}#{o.namespace}.module(#{name}, #{includeKeys}, function(#{includeObjects}) {\n#{code}\n  return [#{exportObjects}];\n});\n"
     else if o.require
-      includeKeys = JSON.stringify o.includes
+      if o.nameWrapFunction?
+        # Each module name is passed to this function.
+        # The user can alter or wrap the name with same js code.
+        # It must return a string.
+        keys = []
+        for includeName in o.includes
+          keys.push(o.nameWrapFunction includeName)
+        includeKeys = "[#{keys.join(',')}]"
+      else
+        includeKeys = JSON.stringify o.includes
       includeObjects = o.includeObjects.join ', '
       "#{prelude}require(#{includeKeys}, function(#{includeObjects}) {\n#{code}\n});\n"
     else if o.bare
@@ -871,7 +893,7 @@ exports.Bundle = class Bundle extends Base
         @fileNames.push eval(fileName)
       else
         @fileNames.push fileName.replace(/['"]/g, '')
-    
+
   compileNode: (o) ->
     # '// bundle ' + @fileNames
     code = []
@@ -893,10 +915,10 @@ exports.Bundle = class Bundle extends Base
 exports.Include = class Include extends Base
   constructor: (fileName) ->
     @fileName = fileName.replace(/['"]/g, '')
-    
+
   compileNode: (o) ->
     '// include ' + @fileName
-  
+
 #### Class
 
 # The CoffeeScript class definition.
@@ -1003,7 +1025,7 @@ exports.Class = class Class extends Base
     @ctor.ctor     = @ctor.name = name
     @ctor.klass    = null
     @ctor.noReturn = yes
-  
+
   # Instead of generating the JavaScript string directly, we build up the
   # equivalent syntax tree and compile that, in pieces. You can see the
   # constructor, property assignments, and inheritance getting built out below.
@@ -1022,7 +1044,7 @@ exports.Class = class Class extends Base
     if decl
       # replaced 'name' with 'className' to make it simpler to recognize and mangle!
       @body.expressions.unshift new Assign (new Value (new Literal name), [new Access new Literal 'className']), (new Literal "'#{name}'")
-    
+
     @body.expressions.push lname
     @body.expressions.unshift @directives...
     @addBoundFunctions o
@@ -1038,14 +1060,14 @@ exports.Class = class Class extends Base
 
     klass = new Parens call, yes
     klass = new Assign @variable, klass if @variable
-    
+
     # protocolsString = '// Protocols: "'
     # if @protocols
     #   for prot in @protocols
     #     protocolsString += prot.compileNode(o) + ' '
     # protocolsString +=  '"\n'
     # protocolsString + klass.compile o
-    
+
     klass.compile o
 
 #### Protocol
@@ -1054,7 +1076,7 @@ exports.Protocol = class Protocol extends Class
       name = if @variable then @variable.compileNode(o) else null
       extendsName = if @parent then @parent.compileNode(o) else null
       "// protocol #{name} extends #{extendsName}"
-  
+
 #### Assign
 
 # The **Assign** is used to assign a local variable to value, or to set the
@@ -1189,7 +1211,7 @@ exports.Assign = class Assign extends Base
   compileConditional: (o) ->
     [left, right] = @variable.cacheReference o
     # Disallow conditional assignment of undefined variables.
-    if not left.properties.length and left.base instanceof Literal and 
+    if not left.properties.length and left.base instanceof Literal and
            left.base.value != "this" and not o.scope.check left.base.value
       throw new Error "the variable \"#{left.base.value}\" can't be assigned with #{@context} because it has not been defined."
     if "?" in @context then o.isExistentialEquals = true

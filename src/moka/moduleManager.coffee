@@ -158,7 +158,7 @@ class MKModuleManager
         # console.log @config_.paths
         url = @config_.paths[name]
         unless url
-          console.log 'invalid url ' + url
+          console.log "Invalid url for module '#{name}': #{url}", @config_.paths
           return
 
         # console.log 'module ' + name + ' @ URL: ' + url
@@ -291,38 +291,38 @@ require = () -> moduleManager.require.apply(moduleManager, arguments)
 
 class ModuleLoader
   constructor: (url, completion) ->
-    element = document.createElement('script')
-    element.type = 'text/javascript'
-    element.async = true
-    element.charset = 'utf-8'
-    element.onload = element.onreadystatechange = @didFinishLoading_(element);
-    element.onerror = @didFailLoading_(element);
-    element.src = url
-    @element = element
+    _element = document.createElement('script')
+    _element.type = 'text/javascript'
+    _element.async = true
+    _element.charset = 'utf-8'
+    _element.onload = _element.onreadystatechange = @didFinishLoading_(_element);
+    _element.onerror = @didFailLoading_(_element);
+    _element.src = url
+    @_element = _element
     @completion = completion
 
   start: () ->
     # console.log 'appending element'
-    headElement = document['head'] || document.getElementsByTagName('head')[0]
-    headElement.insertBefore(@element, headElement.firstChild)
+    _headElement = document['head'] || document.getElementsByTagName('head')[0]
+    _headElement.insertBefore(@_element, _headElement.firstChild)
 
   # ===========
   # = Private =
   # ===========
 
-  didFinishLoading_: (element) ->
+  didFinishLoading_: (_element) ->
     self = @
-    (event) ->
-      event = event || window.event;
+    (_event) ->
+      _event = _event || window.event;
       # detect when it's done loading
       readyRegExp = if navigator.platform is 'PLAYSTATION 3' then /^complete$/ else /^(complete|interactive|loaded)$/
-      if event.type is 'load' or readyRegExp.test element.readyState
+      if _event.type is 'load' or readyRegExp.test _element.readyState
         # release event listeners
-        element.onload = element.onreadystatechange = element.onerror = null;
+        _element.onload = _element.onreadystatechange = _element.onerror = null;
         if self.completion
           self.completion()
 
-  didFailLoading_: (element) ->
+  didFailLoading_: (_element) ->
     self = @
     (event) ->
       if self.completion
