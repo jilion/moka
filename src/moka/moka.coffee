@@ -88,8 +88,11 @@ class App
     includes = @includesForNodesWithRoot root
     imports = []
     for fileName in includes
-      filePath = @filePathForName fileName
-      imports = imports.concat @exportsForFileAtPath filePath
+      if fileName
+        filePath = @filePathForName fileName
+        imports = imports.concat @exportsForFileAtPath filePath
+      else
+        throw "invalid fileName #{fileName}"
     _.uniq imports
 
   bundlesForNodesWithRoot: (root) ->
