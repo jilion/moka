@@ -176,7 +176,7 @@ class MKModuleManager
     i = 0
     if list.indexOf
       return list.indexOf anItem
-    while i < list.count
+    while i < list.length
       if list[i] is anItem
         return i
       i++
