@@ -269,11 +269,16 @@ class App
 
   recursiveReadDir: (dir, name) ->
     isRegex = name instanceof RegExp
+    filePath = null
     if isRegex
       # console.log "********** matches: #{@recursiveScanDirForRegExp dir, name}"
-      @recursiveScanDirForRegExp dir, name
+      filePath = @recursiveScanDirForRegExp dir, name
     else
-      @recursiveScanDirForName dir, name
+      filePath = @recursiveScanDirForName dir, name
+    if not filePath
+      console.trace()
+      throw "Can't find filePath for '#{name}'"
+    filePath
 
   recursiveScanDirForRegExp: (dir, regex) ->
     files = fs.readdirSync dir
