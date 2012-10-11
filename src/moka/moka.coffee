@@ -483,7 +483,7 @@ class App
       throw "Can't find application.moka."
 
   fileContent: (name, options) ->
-    console.log 'file', name
+    console.log 'file =>>', name
     if name is kLoaderFileName
       content = @loaderFileContent()
       content = @compile name, content
@@ -497,8 +497,8 @@ class App
         for module in modules
           console.log 'module', module
           content.push @moduleContent(module, options)
-
-        if name is 'main'
+        console.log "name in ['main', 'app']", name in ['main', 'app']
+        if name in ['main', 'app']
           content.push @applicationContent(options)
           content = [@moduleLoaderContent()].concat content
           # end = (new Date).getTime()
