@@ -265,7 +265,11 @@ class App
       filePath
 
   isDir: (file) ->
-    fs.statSync(file).isDirectory()
+    try
+      return fs.statSync(file).isDirectory()
+    catch e
+      return no
+
 
   recursiveReadDir: (dir, name) ->
     isRegex = name instanceof RegExp

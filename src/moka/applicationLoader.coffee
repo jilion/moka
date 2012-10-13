@@ -34,15 +34,16 @@ loadApplication = ->
 
 buildAppLoader = () ->
   (cb) ->
-    loadApp_ ->
+    loadApp_ (cb) ->
       notifyObservers readyObservers_
       i = 0
+      api = window[namespace]
+      method = api["prepare"]
       while i < prepareCalls_.length
-        method = window[namespace]["prepare"]
-        method.apply window, prepareCalls_[i]
+        method.apply api, prepareCalls_[i]
         i++
 
-      # TODO: before or after invoking cb()? I wouldsay after...
+      # TODO: before or after invoking cb()? I would say after...
       applicationDidLoad()
 
       cb() if cb
@@ -137,10 +138,11 @@ api["prepare"] = (arg1, arg2) ->
     if shouldLoadApplication()
       preparesObservers_.push observer if observer
       if domLoaded_
+        prepareCalls_.push [ arg1, arg2 ]
         loadApp ->
           notifyObservers preparesObservers_
     else (if (domLoaded_) then observer() else readyObservers_.push(observer))  if observer
-
+  undefined
 
 loadApp = buildAppLoader()
 customAPI()
