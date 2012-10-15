@@ -310,7 +310,9 @@ class App
         # console.log '#### FOUND ####'
         return filePath
 
-  replaceMacros: (code) ->
+  replaceMacros: (code, macros = {}) ->
+    prod = if macros.production is yes then true else false
+    code = code.replace(/([^A-Z_])PRODUCTION([^A-Z_])/g, "$1#{prod}$2")
     code = code.replace(/([^A-Z_])NAMESPACE([^A-Z_])/g, "$1'#{@config().namespace}'$2")
     code = code.replace(/([^A-Z_])PRIVATE_NAMESPACE([^A-Z_])/g, "$1'#{@privateNamespace()}'$2")
     code
@@ -447,7 +449,7 @@ class App
     # end = (new Date).getTime()
     # console.log 'time to wrap module :', (end - start)
     # start = (new Date).getTime()
-    content = @replaceMacros content
+    content = @replaceMacros content, options.macros
     # end = (new Date).getTime()
     # console.log 'time to replace macros :', (end - start)
     content
@@ -463,7 +465,7 @@ class App
   moduleLoaderContent: (options = {compiled:yes}) ->
     code = fs.readFileSync(path.join(__dirname, '../../src/moka/moduleManager.coffee'), 'utf-8')
     code = @compile 'moduleLoader', code, bare:yes if options.compiled
-    @replaceMacros code
+    @replaceMacros code, options.macros
 
   applicationContent: (options = {compiled:yes}) ->
     options.compiled = yes
@@ -482,12 +484,12 @@ class App
         options.includeObjects.push(obj) for obj in mod.exports
       options.require = yes
       code = @compile 'application', code, options if options.compiled
-      @replaceMacros code
+      @replaceMacros code, options.macros
     else
       throw "Can't find application.moka."
 
   fileContent: (name, options) ->
-    console.log 'file =>>', name
+    console.log 'file =>>', name, options.macros
     if name is kLoaderFileName
       content = @loaderFileContent()
       content = @compile name, content
