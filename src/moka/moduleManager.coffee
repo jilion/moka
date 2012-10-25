@@ -6,10 +6,11 @@ class MKModuleManager
       sharedInstance_ = new MKModuleManager
     sharedInstance_
 
-  @ModuleState =
+  @ModuleState = # should be load state
     Loading: 0
     Awaiting: 1
     Installed: 2
+    Failed: 3
 
   constructor: ->
     # installed modules
@@ -18,6 +19,7 @@ class MKModuleManager
     # put pending calls awaiting for modules to be downloaded.
     @pendingCalls_ = []
     # @moduleURLs_ = {} no needed anymore
+    @files_ = {}
     @config_ =
       paths: {}
     # context used to call the modules.
@@ -35,6 +37,9 @@ class MKModuleManager
 
   addPath: (module, path) ->
     @config_.paths[module] = path;
+
+  setCurrentPath: (path) ->
+    @files_[path] = MKModuleManager.ModuleState.Installed
 
   define: () ->
     # console.log 'define() called!'
@@ -111,6 +116,7 @@ class MKModuleManager
         self.downloadModules_ moduleNames
 
     requireMethod.addPath = (module, path) -> self.addPath(module, path)
+    requireMethod.setCurrentPath = (path) -> self.setCurrentPath(path)
     [requireMethod]
 
 
@@ -159,15 +165,30 @@ class MKModuleManager
         url = @config_.paths[name]
         unless url
           console.log "Invalid url for module '#{name}': #{url}", @config_.paths
+          @moduleStates_[name] = MKModuleManager.ModuleState.Failed
+          @modules_[name] = { objects: [] }
+          @didInstallModule_(null)
           return
 
-        # console.log 'module ' + name + ' @ URL: ' + url
-        loader = new ModuleLoader url, (error) ->
-          if error
-            console.log error
-          else
-            # console.log 'module ' + name + " loaded"
-        loader.start()
+        if state = @files_[url]
+          if state in [MKModuleManager.ModuleState.Installed, MKModuleManager.ModuleState.Failed]
+            console.log "Already downloaded file at url #{url}", @files_
+            @moduleStates_[name] = MKModuleManager.ModuleState.Failed
+            @modules_[name] = { objects: [] }
+            @didInstallModule_(null)
+            return
+        else
+          # console.log 'module ' + name + ' @ URL: ' + url
+          @files_[url] = MKModuleManager.ModuleState.Loading
+          self = @
+          loader = new ModuleLoader url, (error) ->
+            if error
+              self.files_[url] = MKModuleManager.ModuleState.Failed
+              console.log error
+            else
+              self.files_[url] = MKModuleManager.ModuleState.Installed
+              # console.log 'module ' + name + " loaded"
+          loader.start()
       else
         # console.log 'already downloading module ' + name
 
@@ -242,7 +263,14 @@ class MKModuleManager
   areInstalled_: (names) ->
     # for name in names
       # console.log 'state of ' + name + ": " + @moduleStates_[name]
-    @areInState_ names, MKModuleManager.ModuleState.Installed
+    # @areInState_ names,
+    for name in names
+      if not @isInState_(name, MKModuleManager.ModuleState.Installed) \
+          and not @isInState_(name, MKModuleManager.ModuleState.Failed)
+        # console.log name
+        return no
+    yes
+
 
   isAwaiting_: (name) ->
     @isInState_ name, MKModuleManager.ModuleState.Awaiting
@@ -251,12 +279,12 @@ class MKModuleManager
     # console.log (@moduleStates_[@extractModuleName_(name)] is state)
     @moduleStates_[name] is state
 
-  areInState_: (names, state) ->
-    for name in names
-      if not @isInState_(name, state)
-        # console.log name
-        return no
-    yes
+  # areInState_: (names, state) ->
+  #   for name in names
+  #     if not @isInState_(name, state)
+  #       # console.log name
+  #       return no
+  #   yes
 
 
 
@@ -302,7 +330,7 @@ class ModuleLoader
     @completion = completion
 
   start: () ->
-    # console.log 'appending element'
+    console.log 'start loading', @_element.src
     _headElement = document['head'] || document.getElementsByTagName('head')[0]
     _headElement.insertBefore(@_element, _headElement.firstChild)
 
