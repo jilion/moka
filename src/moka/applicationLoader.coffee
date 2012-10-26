@@ -126,27 +126,38 @@ doScrollCheck = ->
       return
     domDidLoad()
 
-api = window[namespace] = {}
-api["ready"] = (observer) ->
-  readyObservers_.push observer  if isFunction(observer)
+if not window.console
+  f = ->
+  window.console =
+    log: f
+    warn: f
+    error: f
 
-api["prepare"] = (arg1, arg2) ->
-  observer = (if isFunction(arg1) then arg1 else (if isFunction(arg2) then arg2 else null))
-  if appLoadingStatus_ is LoadingApp
-    prepareCalls_.push [ arg1, arg2 ]
-  else if appLoadingStatus_ is AppNotLoaded
-    if shouldLoadApplication()
-      preparesObservers_.push observer if observer
-      if domLoaded_
-        prepareCalls_.push [ arg1, arg2 ]
-        loadApp ->
-          notifyObservers preparesObservers_
-    else (if (domLoaded_) then observer() else readyObservers_.push(observer))  if observer
-  undefined
+api = window[namespace]
+if api and api['ready'] and api['prepare']
+  console.error 'SublimeVideo loader has been injected more than once.'
+else
+  api = window[namespace] = {}
+  api["ready"] = (observer) ->
+    readyObservers_.push observer  if isFunction(observer)
 
-loadApp = buildAppLoader()
-customAPI()
-onReady domReady()
+  api["prepare"] = (arg1, arg2) ->
+    observer = (if isFunction(arg1) then arg1 else (if isFunction(arg2) then arg2 else null))
+    if appLoadingStatus_ is LoadingApp
+      prepareCalls_.push [ arg1, arg2 ]
+    else if appLoadingStatus_ is AppNotLoaded
+      if shouldLoadApplication()
+        preparesObservers_.push observer if observer
+        if domLoaded_
+          prepareCalls_.push [ arg1, arg2 ]
+          loadApp ->
+            notifyObservers preparesObservers_
+      else (if (domLoaded_) then observer() else readyObservers_.push(observer))  if observer
+    undefined
+
+  loadApp = buildAppLoader()
+  customAPI()
+  onReady domReady()
 
 
 
