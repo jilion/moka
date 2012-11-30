@@ -132,6 +132,7 @@ if not window.console
     log: f
     warn: f
     error: f
+    debug: f
 
 api = window[namespace]
 if api and api['ready'] and api['prepare']
