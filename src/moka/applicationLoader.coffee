@@ -5,15 +5,9 @@ _window = window
 AppNotLoaded = 0
 LoadingApp = 1
 AppLoaded = 2
-loadApp = null
 readyObservers_ = []
-preparesObservers_ = []
 appLoadingStatus_ = AppNotLoaded
-internalReadyCallback_ = null
 domLoaded_ = false
-prepareCalls_ = []
-forceLoadApp_ = false
-
 
 isFunction = (arg) ->
   typeof arg is "function"
@@ -24,51 +18,6 @@ notifyObservers = (obs) ->
     obs[i]()
     i++
   obs.length = 0
-
-loadApplication = ->
-  if domLoaded_
-    loadApp() if appLoadingStatus_ is AppNotLoaded
-  else
-    forceLoadApp_ = true
-
-
-buildAppLoader = () ->
-  (cb) ->
-    loadApp_ (cb) ->
-      notifyObservers readyObservers_
-      i = 0
-      api = window[namespace]
-      method = api["prepare"]
-      while i < prepareCalls_.length
-        method.apply api, prepareCalls_[i]
-        i++
-
-      # TODO: before or after invoking cb()? I would say after...
-      applicationDidLoad()
-
-      cb() if cb
-
-
-loadApp_ = (callback) ->
-  console.log('load app')
-  callback()  if appLoadingStatus_ is AppLoaded
-  return  unless appLoadingStatus_ is AppNotLoaded
-  appLoadingStatus_ = LoadingApp
-  loadScript applicationURL(applicationOptions), ->
-    console.log('loaded')
-    window[privateNamespace]["init"] applicationOptions, ->
-      appLoadingStatus_ = AppLoaded
-      callback()
-
-domReady = ->
-  ->
-    if forceLoadApp_ or shouldLoadApplication()
-      loadApp ->
-        notifyObservers preparesObservers_
-    else
-      notifyObservers readyObservers_
-
-
 
 loadScript = (src, callback) ->
   if src
@@ -82,16 +31,9 @@ loadScript = (src, callback) ->
       if not callback.done and (not state or (/loaded|complete/).test(state))
         callback.done = true
         callback()
-
     _container.appendChild _element
   else
     callback()
-onReady = (callback) ->
-  if domLoaded_
-    callback()
-  else
-    internalReadyCallback_ = callback
-    bindReady()
 
 domDidLoad = ->
   ready = 0
@@ -101,10 +43,9 @@ domDidLoad = ->
   else if doc.addEventListener
     doc.removeEventListener DOMContentLoadedString, domDidLoad, false
     ready = 1
-
   if ready and not domLoaded_
     domLoaded_ = true
-    internalReadyCallback_()  if internalReadyCallback_
+    loadApplication() if shouldLoadApplication() or forceAppLoading_
 
 bindReady = ->
   if doc.addEventListener
@@ -117,6 +58,7 @@ bindReady = ->
     try
       toplevel = not _window.frameElement?
     doScrollCheck()  if doc.docElement and doc.docElement.doScroll and toplevel
+
 doScrollCheck = ->
   unless domLoaded_
     try
@@ -134,31 +76,35 @@ if not window.console
     error: f
     debug: f
 
+forceAppLoading_ = no
+
+loadApplication = ->
+  return  unless appLoadingStatus_ is AppNotLoaded
+  appLoadingStatus_ = LoadingApp
+  loadScript applicationURL(applicationOptions), ->
+    window[privateNamespace]["init"] applicationOptions, ->
+      appLoadingStatus_ = AppLoaded
+      notifyObservers readyObservers_
+      applicationDidLoad()
+  `undefined`
+
 api = window[namespace]
-if api and api['ready'] and api['prepare']
-  console.error 'SublimeVideo loader has been injected more than once.'
+if api and api['ready'] and api['load']
+  console.error 'SublimeVideo loader has been installed more than once.'
 else
   api = window[namespace] = {}
   api["ready"] = (observer) ->
-    readyObservers_.push observer  if isFunction(observer)
+    if appLoadingStatus_ is AppLoaded
+      observer()
+    else
+      readyObservers_.push observer if isFunction(observer)
+    `undefined`
 
-  api["prepare"] = (arg1, arg2) ->
-    observer = (if isFunction(arg1) then arg1 else (if isFunction(arg2) then arg2 else null))
-    if appLoadingStatus_ is LoadingApp
-      prepareCalls_.push [ arg1, arg2 ]
-    else if appLoadingStatus_ is AppNotLoaded
-      if shouldLoadApplication()
-        preparesObservers_.push observer if observer
-        if domLoaded_
-          prepareCalls_.push [ arg1, arg2 ]
-          loadApp ->
-            notifyObservers preparesObservers_
-      else (if (domLoaded_) then observer() else readyObservers_.push(observer))  if observer
-    undefined
+  api["load"] = ->
+    if domLoaded_
+      loadApplication()
+    else
+      forceAppLoading_ = yes
 
-  loadApp = buildAppLoader()
   customAPI()
-  onReady domReady()
-
-
-
+  bindReady()
