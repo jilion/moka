@@ -107,4 +107,9 @@ else
       forceAppLoading_ = yes
 
   customAPI()
-  bindReady()
+  if document.readyState is "complete"
+    # document is already laoded, fire callback
+    domDidLoad()
+  else
+    bindReady()
+
