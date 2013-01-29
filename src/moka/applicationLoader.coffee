@@ -105,6 +105,7 @@ else
       loadApplication()
     else
       forceAppLoading_ = yes
+    `undefined`
 
   customAPI()
   if document.readyState is "complete"
