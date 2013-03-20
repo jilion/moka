@@ -35,15 +35,17 @@ loadScript = (src, callback) ->
   else
     callback()
 
-domDidLoad = ->
-  ready = 0
-  if doc.attachEvent and doc.readyState is "complete"
-    doc.detachEvent onreadystatechangeString, domDidLoad
-    ready = 1
-  else if doc.addEventListener
+unlistenDOMLoaded = ->
+  if doc.addEventListener
     doc.removeEventListener DOMContentLoadedString, domDidLoad, false
-    ready = 1
-  if ready and not domLoaded_
+    _window.removeEventListener "load", domDidLoad, false
+  else
+    doc.detachEvent onreadystatechangeString, domDidLoad
+    _window.detachEvent "onload", domDidLoad
+
+domDidLoad = (_event) ->
+  if doc.addEventListener or _event.type is "load" or doc.readyState is "complete"
+    unlistenDOMLoaded()
     domLoaded_ = true
     loadApplication() if shouldLoadApplication() or forceAppLoading_
 
@@ -68,9 +70,12 @@ doScrollCheck = ->
       return
     domDidLoad()
 
-if not window.console
+###
+TO REMOVE PLEASE
+###
+if not _window.console
   f = ->
-  window.console =
+  _window.console =
     log: f
     warn: f
     error: f
@@ -82,17 +87,17 @@ loadApplication = ->
   return  unless appLoadingStatus_ is AppNotLoaded
   appLoadingStatus_ = LoadingApp
   loadScript applicationURL(applicationOptions), ->
-    window[privateNamespace]["init"] applicationOptions, ->
+    _window[privateNamespace]["init"] applicationOptions, ->
       appLoadingStatus_ = AppLoaded
       notifyObservers readyObservers_
       applicationDidLoad()
   `undefined`
 
-api = window[namespace]
+api = _window[namespace]
 if api and api['ready'] and api['load']
   console.error 'SublimeVideo loader has been installed more than once.'
 else
-  api = window[namespace] = {}
+  api = _window[namespace] = {}
   api["ready"] = (observer) ->
     if appLoadingStatus_ is AppLoaded
       observer()
@@ -112,5 +117,8 @@ else
     # document is already laoded, fire callback
     domDidLoad()
   else
-    bindReady()
+    if _window.jQuery
+      _window.jQuery(doc).ready(domDidLoad)
+    else
+      bindReady()
 
