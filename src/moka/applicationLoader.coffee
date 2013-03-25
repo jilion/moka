@@ -35,21 +35,26 @@ loadScript = (src, callback) ->
   else
     callback()
 
-unlistenDOMLoaded = ->
-  if doc.addEventListener
-    doc.removeEventListener DOMContentLoadedString, domDidLoad, false
-    _window.removeEventListener "load", domDidLoad, false
-  else
-    doc.detachEvent onreadystatechangeString, domDidLoad
-    _window.detachEvent "onload", domDidLoad
+unbindReady = ->
+  return unless _binded
+  _binded = no
+  if doc.addEventListener
+    doc.removeEventListener DOMContentLoadedString, domDidLoad, false
+    _window.removeEventListener "load", domDidLoad, false
+  else
+    doc.detachEvent onreadystatechangeString, domDidLoad
+    _window.detachEvent "onload", domDidLoad
 
 domDidLoad = (_event) ->
-  if doc.addEventListener or _event.type is "load" or doc.readyState is "complete"
-    unlistenDOMLoaded()
-    domLoaded_ = true
-    loadApplication() if shouldLoadApplication() or forceAppLoading_
+  _event = _window.event unless _event
+  if doc.addEventListener or doc.readyState is "complete" or (_event and _event.type is "load")
+    unbindReady()
+    unless domLoaded_
+      domLoaded_ = true
+      loadApplication() if shouldLoadApplication() or forceAppLoading_
 
 bindReady = ->
+  _binded = yes
   if doc.addEventListener
     doc.addEventListener DOMContentLoadedString, domDidLoad, false
     _window.addEventListener "load", domDidLoad, false
@@ -117,8 +122,9 @@ else
     # document is already laoded, fire callback
     domDidLoad()
   else
-    if _window.jQuery
-      _window.jQuery(doc).ready(domDidLoad)
+    _jQuery = _window.jQuery
+    if _jQuery and isFunction(_jQuery.ready)
+      _jQuery(doc).ready domDidLoad
     else
       bindReady()
 
