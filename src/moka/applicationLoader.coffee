@@ -46,10 +46,10 @@ unbindReady = ->
     _window.detachEvent "onload", domDidLoad
 
 domDidLoad = (_event) ->
-  _event = _window.event unless _event
-  if doc.addEventListener or doc.readyState is "complete" or (_event and _event.type is "load")
-    unbindReady()
-    unless domLoaded_
+  unless domLoaded_
+    _event = _window.event unless _event
+    if doc.addEventListener or doc.readyState is "complete" or (_event and _event.type is "load")
+      unbindReady()
       domLoaded_ = true
       loadApplication() if shouldLoadApplication() or forceAppLoading_
 
@@ -122,9 +122,18 @@ else
     # document is already laoded, fire callback
     domDidLoad()
   else
+    bindReady()
+    # @issue 1
+    # listen jQuery.ready if exists: on webkit browsers
+    # 'interactive' means "ready" but it bugs on IE9 so we have to
+    # wait for the 'complete' state. However this event is fired
+    # really late when this loader is injected after the dom ready
+    # (eg with jQuery.getScript)
+    # @issue 2
+    # don't add if/else jQuery. Always bind our listeners
+    # on IE8 and some fonts in a .css file jQuery.ready is fired
+    # when readyState is still 'interactive'.
     _jQuery = _window.jQuery
     if _jQuery and isFunction(_jQuery.ready)
       _jQuery(doc).ready domDidLoad
-    else
-      bindReady()
 
