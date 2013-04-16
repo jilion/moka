@@ -126,5 +126,7 @@ parser.lexer =
     @pos = 0
   upcomingInput: ->
     ""
+    
+exports.nodeTypes = require './nodes'
 
 parser.yy = require './nodes'

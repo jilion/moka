@@ -904,8 +904,9 @@ exports.Bundle = class Bundle extends Base
           if fileName.test key
             code.push "#{o.indent}#{value}"
       else
-        fileCode = o.bundles[fileName]
-        code.push "#{o.indent}#{fileCode}" if fileCode
+        if o and o.bundles
+          fileCode = o.bundles[fileName]
+          code.push "#{o.indent}#{fileCode}" if fileCode
 
       code.push "// Bundle #{fileName} end"
     code.join '\n'
